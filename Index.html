@@ -10,18 +10,32 @@
 
 <div id="main-wrapper" style="flex: 1; display: flex; flex-direction: column;">
   <!-- Landing Page -->
-  <div id="p-land" style="min-height: 100vh; background: #001d3d; display: flex; align-items: center; color: white; text-align: center;">
-    <div class="container">
-      <img src="https://i.postimg.cc/1R2ftS8j/2-LOGO-APLIKASI-SIMPEL.png" alt="Logo" style="width: 120px; height: auto; margin-bottom: 20px;">
-      <h1 class="fw-bold mb-1">SIMpel2</h1>
-      <p class="lead mb-5 opacity-75">Sistem Internal Mandiri Penilaian dan Evaluasi Pelayanan</p>
-      <p class="lead mb-5 opacity-100">Silahkan Pilih Akses anda:</p>
+  <div id="p-land" class="bg-vibrant" style="min-height: 100vh; display: flex; align-items: center; color: white; text-align: center;">
+    <div class="container animate-fade-up">
+      <div class="mb-4">
+        <img src="https://i.postimg.cc/1R2ftS8j/2-LOGO-APLIKASI-SIMPEL.png" alt="Logo" style="width: 200px; height: auto; filter: drop-shadow(0 0 30px rgba(255,255,255,0.4));">
+      </div>
+      <h1 class="display-4 fw-bold mb-1" style="letter-spacing: -1px;">SIMPel2</h1>
+      <p class="lead mb-5 opacity-75 mx-auto" style="max-width: 600px; font-weight: 300; font-size: 1.1rem;">Sistem Internal Mandiri Penilaian dan Evaluasi Pelayanan</p>
+      
+      <div class="mb-5">
+        <span class="badge rounded-pill bg-white bg-opacity-25 px-4 py-2" style="font-size: 0.85rem; backdrop-filter: blur(5px); letter-spacing: 1px;">PILIH AKSES</span>
+      </div>
+
       <div class="row justify-content-center g-4">
-        <div class="col-md-5" onclick="openL('Responden')">
-          <div class="p-5 border border-secondary rounded-4 bg-white bg-opacity-10 shadow" style="cursor:pointer"><h3>📝 RESPONDEN</h3></div>
+        <div class="col-md-4 col-lg-3" onclick="openL('Responden')">
+          <div class="p-4 glass-card" style="cursor:pointer">
+            <div class="mb-3" style="font-size: 2.5rem;">📝</div>
+            <h5 class="fw-bold mb-0">RESPONDEN</h5>
+            <p class="small mt-1 opacity-50 text-uppercase" style="font-size: 0.7rem;">Input Data</p>
+          </div>
         </div>
-        <div class="col-md-5" onclick="openL('Evaluator')">
-          <div class="p-5 border border-secondary rounded-4 bg-white bg-opacity-10 shadow" style="cursor:pointer"><h3>🛡️ EVALUATOR</h3></div>
+        <div class="col-md-4 col-lg-3" onclick="openL('Evaluator')">
+          <div class="p-4 glass-card" style="cursor:pointer">
+            <div class="mb-3" style="font-size: 2.5rem;">🛡️</div>
+            <h5 class="fw-bold mb-0">EVALUATOR</h5>
+            <p class="small mt-1 opacity-50 text-uppercase" style="font-size: 0.7rem;">Verifikasi</p>
+          </div>
         </div>
       </div>
     </div>

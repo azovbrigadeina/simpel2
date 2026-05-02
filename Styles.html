@@ -1,6 +1,24 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
 <style>
-  :root { --p: #0057B7; --bg: #f4f7f9; }
-  body { background: var(--bg); font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+  :root { 
+    --p: #0057B7; 
+    --bg: #f4f7f9; 
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --accent: #ffd60a;
+  }
+  
+  body { 
+    background: var(--bg); 
+    font-family: 'Outfit', sans-serif; 
+    min-height: 100vh; 
+    display: flex; 
+    flex-direction: column; 
+    color: #1e293b;
+  }
   .hidden { display: none !important; }
   
   /* Layout */
@@ -28,7 +46,82 @@
   }
   .eval-footer { margin-left: 260px; }
 
-  .sticky-top { background: rgba(255,255,255,0.95); backdrop-filter: blur(5px); z-index: 1020; border-bottom: 3px solid var(--p); padding: 15px 0; }
+  .sticky-top { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); z-index: 1020; border-bottom: 3px solid var(--p); padding: 15px 0; }
+
+  /* Glassmorphism Utilities */
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-modal .modal-content {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 28px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .btn-glass {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    transition: 0.3s;
+  }
+
+  .btn-glass:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fade-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+  }
+
+  .bg-vibrant {
+    background: radial-gradient(circle at top left, #1e3a8a, #1e40af, #1e3a8a);
+    background-size: 400% 400%;
+    animation: gradientMove 15s ease infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .bg-vibrant::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url('https://www.transparenttextures.com/patterns/cubes.png');
+    opacity: 0.05;
+    pointer-events: none;
+  }
+
   @media (max-width: 768px) { 
     .sidebar { display: none; } 
     .content { margin-left: 0; } 

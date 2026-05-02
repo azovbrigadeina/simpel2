@@ -1,14 +1,39 @@
 <!-- Modal Login -->
-<div class="modal fade" id="modL" data-bs-backdrop="static" tabindex="-1">
+<div class="modal fade glass-modal" id="modL" data-bs-backdrop="static" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content p-4 text-center">
-      <h4 class="fw-bold text-primary mb-4" id="titleL">LOGIN</h4>
+    <div class="modal-content p-5 text-center border-0 shadow-lg">
+      <div class="mb-4">
+        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+          <i class="bi bi-person-lock text-primary" style="font-size: 2.5rem;"></i>
+        </div>
+      </div>
+      <h3 class="fw-bold text-dark mb-1" id="titleL">LOGIN</h3>
+      <p class="text-muted small mb-4">Silahkan masukkan kredensial anda</p>
+      
       <form onsubmit="event.preventDefault(); doL();">
-        <input type="text" id="ui" class="form-control mb-3" placeholder="Username" required>
-        <input type="password" id="pi" class="form-control mb-4" placeholder="Password" required>
-        <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">MASUK KE SISTEM</button>
+        <div class="mb-3 position-relative text-start">
+          <label class="form-label small fw-bold text-muted ps-1">USERNAME</label>
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3"><i class="bi bi-person text-muted"></i></span>
+            <input type="text" id="ui" class="form-control border-start-0 rounded-end-pill py-2" placeholder="Username anda" required>
+          </div>
+        </div>
+        
+        <div class="mb-4 position-relative text-start">
+          <label class="form-label small fw-bold text-muted ps-1">PASSWORD</label>
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3"><i class="bi bi-key text-muted"></i></span>
+            <input type="password" id="pi" class="form-control border-start-0 rounded-end-pill py-2" placeholder="Password anda" required>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm transition-all">
+          MASUK KE SISTEM <i class="bi bi-arrow-right ms-2"></i>
+        </button>
       </form>
-      <button class="btn btn-link btn-sm mt-2 text-muted" onclick="location.reload()">Batal</button>
+      <button class="btn btn-link btn-sm mt-3 text-muted text-decoration-none" onclick="location.reload()">
+        <i class="bi bi-x-circle me-1"></i> Batal & Kembali
+      </button>
     </div>
   </div>
 </div>

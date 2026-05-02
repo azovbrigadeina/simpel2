@@ -90,8 +90,9 @@
             </select>
           </div>
           <div class="col-md-8">
-            <label class="small fw-bold text-muted">Link URL Bukti Dukung:</label>
-            <input type="url" class="form-control border-primary" placeholder="Masukkan Link Drive/Lainnya" value="${s.link}" oninput="savA('${q[0]}',this,'link')">
+            <label class="small fw-bold text-muted">Link URL Bukti Dukung (G-Drive & Public):</label>
+            <input type="url" class="form-control border-primary" placeholder="Contoh: https://drive.google.com/..." value="${s.link}" oninput="savA('${q[0]}',this,'link')">
+            <div class="mt-1" style="font-size: 0.7rem; color: #6c757d;"><i class="bi bi-info-circle"></i> Pastikan link dapat diakses publik.</div>
           </div>
         </div>
       </div>`;
@@ -100,10 +101,47 @@
     cont.innerHTML = h; upP(); window.scrollTo(0,0);
   }
   
-  function savA(id, el, t) { if(!ans[id]) ans[id] = {id:id, skala:"", link:""}; ans[id][t] = el.value; upP(); }
-  function nextS() { if(!grp[cats[step]].every(q => ans[q[0]] && ans[q[0]].skala!=="" && ans[q[0]].link!=="")) return Swal.fire('Peringatan','Mohon lengkapi semua skor dan link bukti aspek ini.','warning'); showS(step+1); }
-  function upP() { if(totQ===0) return; let f = Object.values(ans).filter(a => a.skala!=="" && a.link!=="").length; let p = Math.round((f/totQ)*100); document.getElementById('p-bar').style.width = p+'%'; document.getElementById('p-tex').innerText = p+'%'; }
-  function finS() { Swal.fire({title:'Mengirim data...', didOpen:()=>Swal.showLoading()}); google.script.run.withSuccessHandler(()=>location.reload()).simpanSemuaJawaban({opd: sess.nama_opd, jawaban: Object.values(ans)}); }
+  function isV(l) { return l && (l.includes('drive.google.com') || l.includes('docs.google.com')); }
+  
+  function savA(id, el, t) { if(!ans[id]) ans[id] = {id:id, skala:"", link:""}; ans[id][t] = el.value.trim(); upP(); }
+  
+  function nextS() { 
+    const qs = grp[cats[step]];
+    const incomplete = qs.some(q => !ans[q[0]] || ans[q[0]].skala === "" || !ans[q[0]].link);
+    if(incomplete) return Swal.fire('Belum Lengkap','Mohon isi semua skor dan link bukti di aspek ini.','warning');
+    
+    const invalidLinks = qs.some(q => !isV(ans[q[0]].link));
+    if(invalidLinks) return Swal.fire('Link Tidak Valid','Gunakan link Google Drive untuk semua bukti dukung di aspek ini.','warning');
+    
+    showS(step+1); 
+  }
+
+  function upP() { 
+    if(totQ===0) return; 
+    let f = Object.values(ans).filter(a => a.skala!=="" && a.link && isV(a.link)).length; 
+    let p = Math.round((f/totQ)*100); 
+    document.getElementById('p-bar').style.width = p+'%'; 
+    document.getElementById('p-tex').innerText = p+'%'; 
+  }
+
+  function finS() { 
+    // Final check for all questions
+    const answeredCount = Object.values(ans).filter(a => a.skala !== "" && a.link && isV(a.link)).length;
+    if(answeredCount < totQ) return Swal.fire('Belum Selesai',`Anda baru mengisi ${answeredCount} dari ${totQ} indikator. Mohon lengkapi seluruhnya sebelum mengirim.`,'warning');
+
+    Swal.fire({
+      title: 'Kirim Jawaban?',
+      text: "Data yang sudah dikirim tidak dapat diubah kembali tanpa izin admin.",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Kirim Sekarang'
+    }).then(result => {
+      if(result.isConfirmed) {
+        Swal.fire({title:'Mengirim data...', didOpen:()=>Swal.showLoading()}); 
+        google.script.run.withSuccessHandler(()=>location.reload()).simpanSemuaJawaban({opd: sess.nama_opd, jawaban: Object.values(ans)});
+      }
+    });
+  }
 
   // --- EVALUATOR LOGIC ---
   function loadStats() {
