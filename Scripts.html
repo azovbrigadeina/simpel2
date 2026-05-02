@@ -1,0 +1,286 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+  let sess = {}, grp = {}, cats = [], ans = {}, totQ = 0, step = 0, vData = [], currentDataDetail = [], myChart;
+  let mLogin, mDetail, modalAddUser;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    mLogin = new bootstrap.Modal(document.getElementById('modL'));
+    mDetail = new bootstrap.Modal(document.getElementById('modalDetail'));
+    modalAddUser = new bootstrap.Modal(document.getElementById('modalAddUser'));
+  });
+
+  function openL(r) { sess.role = r; document.getElementById('titleL').innerText = 'LOGIN ' + r.toUpperCase(); mLogin.show(); }
+  
+  function doL() {
+    const u = document.getElementById('ui').value, p = document.getElementById('pi').value;
+    if(!u || !p) return Swal.fire('Error','Lengkapi data login','error');
+    Swal.fire({title:'Menghubungkan...', didOpen:()=>Swal.showLoading()});
+    
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if(res.status === "success") { 
+        sess = res; mLogin.hide(); 
+        document.getElementById('p-land').classList.add('hidden');
+        
+        if(res.role === "Responden") { 
+          document.getElementById('p-resp').classList.remove('hidden'); 
+          document.getElementById('opd-name').innerText = res.nama_opd;
+          if(res.sudahIsi) {
+            document.getElementById('f-cont').innerHTML = `
+              <div class="card p-5 text-center shadow-sm border-0">
+                <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                <h3 class="fw-bold mt-3">Data Sudah Terkirim</h3>
+                <p class="text-muted">OPD Anda telah menyelesaikan pengisian kuesioner PEKPPP.<br>
+                Akses pengisian dikunci untuk menjaga validitas data.</p>
+                <div class="alert alert-warning d-inline-block">
+                  <i class="bi bi-info-circle"></i> Hubungi <b>Evaluator (Bagian Organisasi)</b> jika perlu melakukan perbaikan data.
+                </div>
+              </div>`;
+            document.querySelector('.sticky-top').classList.add('hidden');
+          } else {
+            initR();
+          }
+        } else { 
+          document.getElementById('p-eval').classList.remove('hidden'); 
+          loadStats(); 
+        }
+      } else Swal.fire('Gagal', res.message, 'error');
+    }).prosesLogin(u,p);
+  }
+
+  function getKategori(nilai) {
+    const n = parseFloat(nilai);
+    if (n >= 4.51) return { label: "A (SANGAT BAIK)", color: "#198754" };
+    if (n >= 4.01) return { label: "A- (BAIK)", color: "#0d6efd" };
+    if (n >= 3.51) return { label: "B (BAIK DENGAN CATATAN)", color: "#6610f2" };
+    if (n >= 3.01) return { label: "C (CUKUP)", color: "#fd7e14" };
+    return { label: "D (KURANG)", color: "#dc3545" };
+  }
+
+  // --- RESPONDEN ---
+  function initR() { google.script.run.withSuccessHandler(data => { totQ = data.length; grp = {}; cats = []; data.forEach(r => { if(!grp[r[1]]) { grp[r[1]] = []; cats.push(r[1]); } grp[r[1]].push(r); }); showS(0); }).getPertanyaan(); }
+  
+  function showS(idx) {
+    step = idx; const k = cats[idx], qs = grp[k], cont = document.getElementById('f-cont');
+    document.getElementById('k-lab').innerText = k;
+    let h = `<div class="p-3 mb-4 bg-primary text-white fw-bold rounded shadow-sm text-center text-uppercase">ASPEK: ${k}</div>`;
+    
+    qs.forEach(q => {
+      const s = ans[q[0]] || {skala:"", link:""};
+      let pFormatted = (q[3] || "")
+        .replace(/\n/g, '<br>')
+        .replace(/\*Penjelasan\*/g, '<div class="mt-0"><strong><i class="bi bi-info-circle"></i> Penjelasan:</strong></div>')
+        .replace(/\*Dokumen yang Dibutuhkan\*/g, '<div class="mt-3"><strong><i class="bi bi-folder2-open"></i> Dokumen yang Dibutuhkan:</strong></div>')
+        .replace(/\*Kriteria Skala\*/g, '<div class="mt-3"><strong><i class="bi bi-bar-chart"></i> Kriteria Skala:</strong></div>');
+
+      h += `
+      <div class="q-card ${s.skala!==""?'filled shadow-sm':''}">
+        <h5 class="fw-bold mb-3" style="color:#2c3e50;">${q[2]}</h5>
+        <div class="deskripsi-box mb-4 shadow-sm">${pFormatted}</div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="small fw-bold text-muted">Pilih Skor:</label>
+            <select class="form-select border-primary" onchange="savA('${q[0]}',this,'skala')">
+              <option value="">-- Pilih Skor --</option>
+              ${[0,1,2,3,4,5].map(v=>`<option value="${v}" ${s.skala.toString()===v.toString()?'selected':''}>Skala ${v}</option>`).join('')}
+            </select>
+          </div>
+          <div class="col-md-8">
+            <label class="small fw-bold text-muted">Link URL Bukti Dukung:</label>
+            <input type="url" class="form-control border-primary" placeholder="Masukkan Link Drive/Lainnya" value="${s.link}" oninput="savA('${q[0]}',this,'link')">
+          </div>
+        </div>
+      </div>`;
+    });
+    h += `<div class="d-flex justify-content-between mt-4 pb-5"><button class="btn btn-secondary px-4 fw-bold" onclick="showS(${idx-1})" ${idx===0?'disabled':''}>KEMBALI</button>${idx < cats.length-1 ? `<button class="btn btn-primary px-5 shadow fw-bold" onclick="nextS()">LANJUT</button>` : `<button class="btn btn-success px-5 shadow fw-bold" onclick="finS()">KIRIM JAWABAN</button>`}</div>`;
+    cont.innerHTML = h; upP(); window.scrollTo(0,0);
+  }
+  
+  function savA(id, el, t) { if(!ans[id]) ans[id] = {id:id, skala:"", link:""}; ans[id][t] = el.value; upP(); }
+  function nextS() { if(!grp[cats[step]].every(q => ans[q[0]] && ans[q[0]].skala!=="" && ans[q[0]].link!=="")) return Swal.fire('Peringatan','Mohon lengkapi semua skor dan link bukti aspek ini.','warning'); showS(step+1); }
+  function upP() { if(totQ===0) return; let f = Object.values(ans).filter(a => a.skala!=="" && a.link!=="").length; let p = Math.round((f/totQ)*100); document.getElementById('p-bar').style.width = p+'%'; document.getElementById('p-tex').innerText = p+'%'; }
+  function finS() { Swal.fire({title:'Mengirim data...', didOpen:()=>Swal.showLoading()}); google.script.run.withSuccessHandler(()=>location.reload()).simpanSemuaJawaban({opd: sess.nama_opd, jawaban: Object.values(ans)}); }
+
+  // --- EVALUATOR LOGIC ---
+  function loadStats() {
+    google.script.run.withSuccessHandler(res => {
+      document.getElementById('s-tot').innerText = res.total; document.getElementById('s-sud').innerText = res.sudah; document.getElementById('s-bel').innerText = res.total - res.sudah;
+      if (myChart) myChart.destroy();
+      myChart = new Chart(document.getElementById('chartProgres').getContext('2d'), { type:'doughnut', data:{ labels:['Sudah','Belum'], datasets:[{data:[res.sudah, res.total-res.sudah], backgroundColor:['#198754','#dee2e6']}] }, options:{plugins:{legend:{position:'bottom'}}} });
+    }).getStats();
+  }
+
+  function initV() { google.script.run.withSuccessHandler(res => { let h = '<option value="">-- Pilih OPD --</option>'; for(let o in res) h += `<option value="${o}">${o}</option>`; document.getElementById('sel-v').innerHTML = h; }).getOPDSudahKirim(); }
+  
+  function muatV() {
+    const o = document.getElementById('sel-v').value; if(!o) return;
+    Swal.fire({title:'Memuat data...', didOpen:()=>Swal.showLoading()});
+    google.script.run.withSuccessHandler(data => { 
+      Swal.close(); vData = data; renderVList(o);
+    }).getJawabanByOPD(o);
+  }
+
+  function renderVList(opdName) {
+    document.getElementById('v-det').classList.remove('hidden');
+    let h = `
+      <div class="alert alert-info d-flex justify-content-between align-items-center mb-3">
+        <span>Memverifikasi Data: <b>${opdName}</b></span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary fw-bold" onclick="samakanSkorSemua()">
+            <i class="bi bi-check-all"></i> Samakan Semua
+          </button>
+          <button class="btn btn-sm btn-danger fw-bold" onclick="aksiHapus('jawaban', '${opdName}')">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset Responden
+          </button>
+        </div>
+      </div>`;
+    
+    document.getElementById('v-list').innerHTML = h + vData.map((it, i) => `
+      <div class="q-card shadow-sm border-start border-5 border-primary">
+        <div class="row align-items-center">
+          <div class="col-12 mb-3 d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="fw-bold mb-1">${it.pertanyaan}</h6>
+              <a href="${it.link}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg"></i> Lihat Bukti Dukung</a>
+            </div>
+            <button class="btn btn-sm btn-primary fw-bold" onclick="samakanSkorSatu(${i})">
+              <i class="bi bi-arrow-right-short"></i> Samakan
+            </button>
+          </div>
+          <div class="col-12 d-flex gap-2 align-items-center">
+            <div class="badge-resp"><small class="d-block text-muted">Resp:</small><span class="badge bg-secondary fs-6">${it.skala_responden}</span></div>
+            <div class="col-eval-skala">
+              <small class="d-block text-muted text-primary fw-bold">Pilih Skala:</small>
+              <select id="sel-eval-${i}" class="form-select form-select-sm border-primary" onchange="vData[${i}].skala_evaluator=this.value">
+                <option value="">-- Skor --</option>
+                ${[0,1,2,3,4,5].map(v=>`<option value="${v}" ${it.skala_evaluator.toString()===v.toString()?'selected':''}>${v}</option>`).join('')}
+              </select>
+            </div>
+            <div class="col-eval-catatan">
+              <small class="d-block text-muted text-primary fw-bold">Catatan Evaluator:</small>
+              <textarea class="form-control form-control-sm border-primary" rows="1" oninput="vData[${i}].catatan=this.value" placeholder="Tulis catatan verifikasi di sini...">${it.catatan||''}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function samakanSkorSatu(idx) {
+    vData[idx].skala_evaluator = vData[idx].skala_responden;
+    document.getElementById('sel-eval-' + idx).value = vData[idx].skala_responden;
+    // Tambahkan feedback visual sedikit
+    const card = document.getElementById('sel-eval-' + idx).closest('.q-card');
+    card.style.backgroundColor = '#f0fff4';
+    setTimeout(() => card.style.backgroundColor = 'white', 500);
+  }
+
+  function samakanSkorSemua() {
+    vData.forEach((it, i) => { vData[i].skala_evaluator = it.skala_responden; });
+    renderVList(document.getElementById('sel-v').value);
+    Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Semua skor telah disamakan.', timer: 1000, showConfirmButton: false });
+  }
+
+  function kirimV() { Swal.fire({title:'Menyimpan...', didOpen:()=>Swal.showLoading()}); google.script.run.withSuccessHandler(()=>Swal.fire('Tersimpan','Verifikasi berhasil diperbarui','success')).simpanVerifikasi({opd: document.getElementById('sel-v').value, items: vData}); }
+
+  function loadHasil() {
+    google.script.run.withSuccessHandler(res => {
+      currentDataDetail = res;
+      document.getElementById('h-body').innerHTML = res.map((h, i) => {
+        const totalNilai = h.rincian.reduce((a, b) => a + parseFloat(b.nilai), 0).toFixed(3);
+        const kat = getKategori(totalNilai);
+        return `<tr><td class="fw-bold px-3">${h.opd}</td><td class="text-center"><span class="badge bg-primary fs-6">${totalNilai}</span></td><td class="text-center fw-bold" style="color:${kat.color}">${kat.label.split(' ')[0]}</td><td class="text-center"><button class="btn btn-sm btn-info text-white fw-bold" onclick="bukaDetail(${i})">Laporan</button> <button class="btn btn-sm btn-outline-danger" onclick="aksiHapus('verifikasi', '${h.opd}')">Hapus</button></td></tr>`;
+      }).join('');
+    }).getRekapVerifikasi();
+  }
+
+  function loadMasterSoal() { google.script.run.withSuccessHandler(data => { document.getElementById('soal-body').innerHTML = data.map(s => `<tr><td><span class="badge bg-info">${s[1]}</span></td><td>${s[2]}</td><td>${s[4]}</td></tr>`).join(''); }).getPertanyaan(); }
+  
+  function loadMasterUser() {
+    google.script.run.withSuccessHandler(data => {
+      document.getElementById('user-body').innerHTML = data.map(u => `
+        <tr>
+          <td><b>${u[0]}</b></td>
+          <td><span class="badge bg-light text-dark">${u[2]}</span></td>
+          <td>${u[3]}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-danger" onclick="aksiHapusUser('${u[0]}')">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>`).join('');
+    }).getAllUsers();
+  }
+
+  function bukaDetail(idx) {
+    const d = currentDataDetail[idx]; const totalNilai = d.rincian.reduce((a, b) => a + parseFloat(b.nilai), 0).toFixed(3); const kat = getKategori(totalNilai);
+    document.getElementById('det-opd-nama').innerText = d.opd; document.getElementById('det-total-display').innerText = totalNilai; document.getElementById('det-kategori-label').innerText = kat.label; document.getElementById('det-kategori-label').style.color = kat.color;
+    const gr = d.rincian.reduce((acc, it) => { if (!acc[it.aspek]) acc[it.aspek] = []; acc[it.aspek].push(it); return acc; }, {});
+    let h = ""; for (let asp in gr) { gr[asp].forEach((r, i) => { h += `<tr>${i===0?`<td rowspan="${gr[asp].length}" class="fw-bold align-middle bg-light" style="width:180px">${asp}</td>`:''}<td>${r.soal}</td><td class="text-center">${r.bobot}</td><td class="text-center">${r.skor}</td><td class="text-center fw-bold">${r.nilai}</td></tr>`; }); }
+    document.getElementById('det-tabel-body').innerHTML = h; mDetail.show();
+  }
+
+  function aksiHapus(tipe, opd) {
+    Swal.fire({ title:'Konfirmasi Hapus', text:`Anda akan menghapus seluruh data ${tipe} untuk ${opd}.`, icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Ya, Hapus!' }).then(r => {
+      if(r.isConfirmed) google.script.run.withSuccessHandler(()=>location.reload()).hapusJawabanOPD(opd);
+    });
+  }
+
+  function cetakPDF() { const element = document.getElementById('area-print'); html2pdf().set({ margin:10, filename:'Laporan_Evaluasi.pdf', jsPDF:{unit:'mm', format:'a4', orientation:'portrait'} }).from(element).save(); }
+
+  function bukaModalTambahUser() {
+    document.getElementById('new-user').value = '';
+    document.getElementById('new-pass').value = '';
+    document.getElementById('new-role').value = 'Responden';
+    google.script.run.withSuccessHandler(list => {
+      let select = document.getElementById('new-opd');
+      let h = '<option value="">-- Pilih OPD --</option>';
+      list.forEach(nama => { h += `<option value="${nama}">${nama}</option>`; });
+      select.innerHTML = h;
+      modalAddUser.show();
+    }).getListOPD();
+  }
+
+  function prosesSimpanUser() {
+    const payload = {
+      username: document.getElementById('new-user').value.trim(),
+      password: document.getElementById('new-pass').value.trim(),
+      role: document.getElementById('new-role').value,
+      nama_opd: document.getElementById('new-opd').value.trim()
+    };
+    if (!payload.username || !payload.password || !payload.nama_opd) return Swal.fire('Peringatan', 'Semua data harus diisi!', 'warning');
+    Swal.fire({title: 'Menyimpan...', didOpen: () => Swal.showLoading()});
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire('Berhasil', res, 'success');
+      modalAddUser.hide();
+      loadMasterUser();
+    }).withFailureHandler(err => {
+      Swal.fire('Gagal', err.message, 'error');
+    }).simpanUserBaru(payload);
+  }
+
+  function aksiHapusUser(username) {
+    if(username === sess.username) return Swal.fire('Error', 'Anda tidak bisa menghapus akun sendiri!', 'error');
+    Swal.fire({
+      title: 'Hapus User?',
+      text: `Apakah Anda yakin ingin menghapus user "${username}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Ya, Hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({title: 'Menghapus...', didOpen: () => Swal.showLoading()});
+        google.script.run.withSuccessHandler(res => {
+          Swal.fire('Terhapus!', res, 'success');
+          loadMasterUser();
+        }).withFailureHandler(err => {
+          Swal.fire('Gagal', err.message, 'error');
+        }).hapusUser(username);
+      }
+    });
+  }
+</script>

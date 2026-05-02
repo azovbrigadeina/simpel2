@@ -1,0 +1,78 @@
+<div id="p-eval" class="hidden" style="display: flex; flex: 1;">
+  <div class="sidebar shadow-sm d-flex flex-column">
+    <h5 class="fw-bold text-primary mb-4 border-bottom pb-2 text-center">EVALUATOR</h5>
+    <div class="nav flex-column nav-pills" role="tablist">
+      <button class="nav-link active mb-2 text-start" data-bs-toggle="pill" data-bs-target="#t-stat" onclick="loadStats()"><i class="bi bi-speedometer2 me-2"></i> Dashboard</button>
+      <button class="nav-link mb-2 text-start" data-bs-toggle="pill" data-bs-target="#t-verif" onclick="initV()"><i class="bi bi-clipboard-check me-2"></i> Verifikasi</button>
+      <button class="nav-link mb-2 text-start" data-bs-toggle="pill" data-bs-target="#t-hasil" onclick="loadHasil()"><i class="bi bi-file-earmark-bar-graph me-2"></i> Rekap Nilai</button>
+      <button class="nav-link mb-2 text-start" data-bs-toggle="pill" data-bs-target="#t-soal" onclick="loadMasterSoal()"><i class="bi bi-database me-2"></i> Master Soal</button>
+      <button class="nav-link mb-2 text-start" data-bs-toggle="pill" data-bs-target="#t-user" onclick="loadMasterUser()"><i class="bi bi-people me-2"></i> Data User</button>
+    </div>
+    <div class="mt-auto"><hr><button class="btn btn-danger btn-sm w-100 fw-bold" onclick="location.reload()">Logout</button></div>
+  </div>
+  
+  <div class="content">
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="t-stat">
+        <h4 class="fw-bold mb-4">Dashboard Monitoring</h4>
+        <div class="row g-4 mb-4">
+          <div class="col-md-4"><div class="card p-3 border-0 shadow-sm bg-primary text-white"><h6>Total Responden</h6><h2 id="s-tot">0</h2></div></div>
+          <div class="col-md-4"><div class="card p-3 border-0 shadow-sm bg-success text-white"><h6>Sudah Input</h6><h2 id="s-sud">0</h2></div></div>
+          <div class="col-md-4"><div class="card p-3 border-0 shadow-sm bg-warning text-dark"><h6>Sisa Belum</h6><h2 id="s-bel">0</h2></div></div>
+        </div>
+        <div class="card p-4 border-0 shadow-sm text-center"><canvas id="chartProgres" style="max-height: 300px;"></canvas></div>
+      </div>
+      
+      <div class="tab-pane fade" id="t-verif">
+        <h4 class="fw-bold mb-4">Verifikasi Data</h4>
+        <div class="card p-4 border-0 shadow-sm mb-4">
+          <div class="row g-2">
+            <div class="col-md-9"><select id="sel-v" class="form-select border-primary"></select></div>
+            <div class="col-md-3"><button class="btn btn-primary w-100 fw-bold" onclick="muatV()">BUKA DATA</button></div>
+          </div>
+        </div>
+        <div id="v-det" class="hidden">
+          <div id="v-list"></div>
+          <div class="text-end mt-4">
+            <button class="btn btn-success px-5 fw-bold shadow-lg" onclick="kirimV()">💾 SIMPAN VERIFIKASI</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-pane fade" id="t-hasil">
+        <h4 class="fw-bold mb-4">Rekapitulasi Hasil</h4>
+        <div class="card border-0 shadow-sm overflow-hidden">
+          <table class="table table-hover mb-0">
+            <thead class="bg-light"><tr><th>Nama OPD</th><th class="text-center">Indeks</th><th class="text-center">Predikat</th><th class="text-center">Aksi</th></tr></thead>
+            <tbody id="h-body"></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="tab-pane fade" id="t-soal">
+        <h4 class="fw-bold mb-4">Master Soal</h4>
+        <div class="card border-0 shadow-sm p-3">
+          <table class="table small">
+            <thead><tr><th>Aspek</th><th>Pertanyaan</th><th>Bobot</th></tr></thead>
+            <tbody id="soal-body"></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="tab-pane fade" id="t-user">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h4 class="fw-bold m-0">Daftar Pengguna</h4>
+          <button class="btn btn-primary fw-bold shadow-sm" onclick="bukaModalTambahUser()">
+            <i class="bi bi-person-plus-fill me-2"></i> TAMBAH USER
+          </button>
+        </div>
+        <div class="card border-0 shadow-sm p-3">
+          <table class="table table-hover">
+            <thead><tr><th>Username</th><th>Role</th><th>Nama OPD</th><th class="text-end">Aksi</th></tr></thead>
+            <tbody id="user-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

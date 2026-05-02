@@ -1,0 +1,37 @@
+<style>
+  :root { --p: #0057B7; --bg: #f4f7f9; }
+  body { background: var(--bg); font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+  .hidden { display: none !important; }
+  
+  /* Layout */
+  .sidebar { width: 260px; height: 100vh; position: fixed; background: white; border-right: 1px solid #ddd; padding: 20px; z-index: 1000; }
+  .content { margin-left: 260px; padding: 30px; flex: 1; }
+  #p-resp { flex: 1; }
+  
+  /* Card Pertanyaan */
+  .q-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 6px solid #dee2e6; transition: 0.3s; }
+  .q-card.filled { border-left-color: #198754; }
+  
+  /* Deskripsi Box - Responden */
+  .deskripsi-box { background-color: #fcfdfe; border-left: 4px solid #0dcaf0; padding: 20px; border-radius: 10px; font-size: 0.92rem; color: #34495e; line-height: 1.7; border: 1px solid #eef2f5; }
+  .deskripsi-box strong { color: #0057B7; display: block; }
+
+  /* Footer Styling */
+  .main-footer {
+    text-align: center;
+    padding: 15px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    background: white;
+    border-top: 1px solid #dee2e6;
+    width: 100%;
+  }
+  .eval-footer { margin-left: 260px; }
+
+  .sticky-top { background: rgba(255,255,255,0.95); backdrop-filter: blur(5px); z-index: 1020; border-bottom: 3px solid var(--p); padding: 15px 0; }
+  @media (max-width: 768px) { 
+    .sidebar { display: none; } 
+    .content { margin-left: 0; } 
+    .eval-footer { margin-left: 0; }
+  }
+</style>
