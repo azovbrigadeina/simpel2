@@ -36,6 +36,19 @@ function getAllUsers() {
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Users").getDataRange().getValues().slice(1);
 }
 
+/**
+ * Mengembalikan daftar user sebagai array objek terstruktur.
+ * Digunakan oleh tab Pengaturan untuk mengisi dropdown pilihan OPD.
+ */
+function getDaftarUser() {
+  const rows = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Users").getDataRange().getValues().slice(1);
+  return rows.map(r => ({
+    username: r[0].toString().trim(),
+    role: r[2].toString().trim().toLowerCase(),
+    opd: r[3].toString().trim()
+  }));
+}
+
 function simpanUserBaru(payload) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Users");

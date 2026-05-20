@@ -54,15 +54,56 @@
 
   function getKategori(nilai) {
     const n = parseFloat(nilai);
-    if (n >= 4.51) return { label: "A (SANGAT BAIK)", color: "#198754" };
-    if (n >= 4.01) return { label: "A- (BAIK)", color: "#0d6efd" };
-    if (n >= 3.51) return { label: "B (BAIK DENGAN CATATAN)", color: "#6610f2" };
-    if (n >= 3.01) return { label: "C (CUKUP)", color: "#fd7e14" };
-    return { label: "D (KURANG)", color: "#dc3545" };
+    if (n >= 4.51) return { label: "A (PELAYANAN PRIMA)", color: "#198754" };
+    if (n >= 4.01) return { label: "A- (SANGAT BAIK)", color: "#0d6efd" };
+    if (n >= 3.51) return { label: "B (BAIK)", color: "#0dcaf0" };
+    if (n >= 3.01) return { label: "B- (BAIK DENGAN CATATAN)", color: "#6610f2" };
+    if (n >= 2.51) return { label: "C (CUKUP)", color: "#fd7e14" };
+    if (n >= 2.01) return { label: "C- (CUKUP DENGAN CATATAN)", color: "#ffc107" };
+    if (n >= 1.51) return { label: "D (BURUK)", color: "#dc3545" };
+    if (n >= 1.01) return { label: "E (SANGAT BURUK)", color: "#b02a37" };
+    return { label: "F (GAGAL)", color: "#6c757d" };
   }
 
   // --- RESPONDEN ---
-  function initR() { google.script.run.withSuccessHandler(data => { totQ = data.length; grp = {}; cats = []; data.forEach(r => { if(!grp[r[1]]) { grp[r[1]] = []; cats.push(r[1]); } grp[r[1]].push(r); }); showS(0); }).getPertanyaan(); }
+  function initR() {
+    const namaOPD = document.getElementById('opd-name').innerText;
+    google.script.run.withSuccessHandler(status => {
+      if (!status.isOpen) {
+        // Sembunyikan progress bar
+        document.querySelector('.sticky-top').classList.add('hidden');
+        document.getElementById('f-cont').innerHTML = `
+          <div class="text-center py-5">
+            <div class="display-1 mb-3">🔒</div>
+            <h3 class="fw-bold text-danger">Periode Pengisian Ditutup</h3>
+            <p class="text-muted">${status.pesan}</p>
+            ${status.buka ? `<div class="d-flex justify-content-center gap-4 mt-4">
+              <div class="card border-0 shadow-sm p-3 text-center" style="min-width:180px">
+                <div class="text-success fw-bold small"><i class="bi bi-calendar-check"></i> Dibuka</div>
+                <div class="fw-bold">${status.buka}</div>
+              </div>
+              <div class="card border-0 shadow-sm p-3 text-center" style="min-width:180px">
+                <div class="text-danger fw-bold small"><i class="bi bi-calendar-x"></i> Ditutup</div>
+                <div class="fw-bold">${status.tutup}</div>
+              </div>
+            </div>` : ''}
+          </div>`;
+        return;
+      }
+      // Tampilkan banner info jika periode aktif
+      if (status.tutup) {
+        const info = document.getElementById('periode-info');
+        info.className = 'alert alert-info border-0 shadow-sm rounded-4 mb-4 d-flex align-items-center';
+        info.innerHTML = `<div class="me-3 fs-4">📅</div><div><strong>Batas Pengisian:</strong> Formulir ini akan ditutup pada <strong>${status.tutup}</strong>. Pastikan Anda mengirimkan jawaban sebelum batas waktu tersebut.</div>`;
+      }
+      // Lanjut muat pertanyaan
+      google.script.run.withSuccessHandler(data => {
+        totQ = data.length; grp = {}; cats = [];
+        data.forEach(r => { if(!grp[r[1]]) { grp[r[1]] = []; cats.push(r[1]); } grp[r[1]].push(r); });
+        showS(0);
+      }).getPertanyaan();
+    }).cekStatusPeriode(namaOPD);
+  }
   
   function showS(idx) {
     step = idx; const k = cats[idx], qs = grp[k], cont = document.getElementById('f-cont');
@@ -107,18 +148,26 @@
   
   function nextS() { 
     const qs = grp[cats[step]];
-    const incomplete = qs.some(q => !ans[q[0]] || ans[q[0]].skala === "" || !ans[q[0]].link);
-    if(incomplete) return Swal.fire('Belum Lengkap','Mohon isi semua skor dan link bukti di aspek ini.','warning');
+    const incomplete = qs.some(q => {
+      const a = ans[q[0]];
+      if(!a || a.skala === "") return true;
+      // Jika skala bukan 0, maka link wajib diisi dan valid
+      if(a.skala !== "0" && (!a.link || !isV(a.link))) return true;
+      return false;
+    });
     
-    const invalidLinks = qs.some(q => !isV(ans[q[0]].link));
-    if(invalidLinks) return Swal.fire('Link Tidak Valid','Gunakan link Google Drive untuk semua bukti dukung di aspek ini.','warning');
+    if(incomplete) return Swal.fire('Belum Lengkap','Mohon isi semua skor dan bukti dukung (kecuali untuk skala 0).','warning');
     
     showS(step+1); 
   }
 
   function upP() { 
     if(totQ===0) return; 
-    let f = Object.values(ans).filter(a => a.skala!=="" && a.link && isV(a.link)).length; 
+    let f = Object.values(ans).filter(a => {
+      if(a.skala === "") return false;
+      if(a.skala === "0") return true; // Skala 0 dianggap valid meski tanpa link
+      return a.link && isV(a.link);
+    }).length; 
     let p = Math.round((f/totQ)*100); 
     document.getElementById('p-bar').style.width = p+'%'; 
     document.getElementById('p-tex').innerText = p+'%'; 
@@ -126,7 +175,11 @@
 
   function finS() { 
     // Final check for all questions
-    const answeredCount = Object.values(ans).filter(a => a.skala !== "" && a.link && isV(a.link)).length;
+    const answeredCount = Object.values(ans).filter(a => {
+      if(a.skala === "") return false;
+      if(a.skala === "0") return true;
+      return a.link && isV(a.link);
+    }).length;
     if(answeredCount < totQ) return Swal.fire('Belum Selesai',`Anda baru mengisi ${answeredCount} dari ${totQ} indikator. Mohon lengkapi seluruhnya sebelum mengirim.`,'warning');
 
     Swal.fire({
@@ -138,7 +191,9 @@
     }).then(result => {
       if(result.isConfirmed) {
         Swal.fire({title:'Mengirim data...', didOpen:()=>Swal.showLoading()}); 
-        google.script.run.withSuccessHandler(()=>location.reload()).simpanSemuaJawaban({opd: sess.nama_opd, jawaban: Object.values(ans)});
+        google.script.run.withSuccessHandler(() => {
+          window.top.location.href = 'https://bagorsetdamuarojambi.blogspot.com/';
+        }).simpanSemuaJawaban({opd: sess.nama_opd, jawaban: Object.values(ans)});
       }
     });
   }
@@ -157,16 +212,31 @@
   function muatV() {
     const o = document.getElementById('sel-v').value; if(!o) return;
     Swal.fire({title:'Memuat data...', didOpen:()=>Swal.showLoading()});
-    google.script.run.withSuccessHandler(data => { 
-      Swal.close(); vData = data; renderVList(o);
+    google.script.run.withSuccessHandler(res => { 
+      Swal.close(); vData = res.items; renderVList(o, res.nilaiSKM, res.catatanKomponen);
     }).getJawabanByOPD(o);
   }
 
-  function renderVList(opdName) {
+  function renderVList(opdName, nilaiSKM, ck) {
+    ck = ck || {pt_p:'', pt_r:'', ai_p:'', ai_r:'', pm_p:'', pm_r:'', ep_p:'', ep_r:''};
     document.getElementById('v-det').classList.remove('hidden');
     let h = `
+      <div class="card p-3 border-0 shadow-sm mb-3 bg-light border-start border-5 border-warning">
+        <div class="row align-items-center">
+          <div class="col-md-7">
+            <h6 class="fw-bold mb-1 text-uppercase">Dimensi SKM (Manual)</h6>
+            <p class="small text-muted mb-0">Masukkan nilai Survei Kepuasan Masyarakat untuk <b>${opdName}</b>.</p>
+          </div>
+          <div class="col-md-5">
+            <div class="input-group">
+              <span class="input-group-text bg-warning text-white border-warning fw-bold">NILAI SKM</span>
+              <input type="number" id="inp-skm" class="form-control border-warning fw-bold" step="0.001" value="${nilaiSKM || ''}" placeholder="0.000">
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="alert alert-info d-flex justify-content-between align-items-center mb-3">
-        <span>Memverifikasi Data: <b>${opdName}</b></span>
+        <span>Memverifikasi Dimensi Tata Kelola: <b>${opdName}</b></span>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary fw-bold" onclick="samakanSkorSemua()">
             <i class="bi bi-check-all"></i> Samakan Semua
@@ -204,7 +274,48 @@
             </div>
           </div>
         </div>
-      </div>`).join('');
+      </div>`).join('') + `
+      <div class="card p-4 border-0 shadow-sm mt-4 bg-light border-start border-5 border-info">
+        <h5 class="fw-bold mb-3 text-info">CATATAN EVALUATOR PER KOMPONEN</h5>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm align-middle bg-white">
+            <thead class="table-secondary text-center">
+              <tr>
+                <th width="5%">No</th>
+                <th width="25%">Komponen</th>
+                <th width="35%">Pengamatan Lapangan</th>
+                <th width="35%">Rekomendasi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-center">1</td>
+                <td class="fw-bold">PONDASI TEKNIS</td>
+                <td><textarea id="ck_pt_p" class="form-control form-control-sm" rows="2">${ck.pt_p}</textarea></td>
+                <td><textarea id="ck_pt_r" class="form-control form-control-sm" rows="2">${ck.pt_r}</textarea></td>
+              </tr>
+              <tr>
+                <td class="text-center">2</td>
+                <td class="fw-bold">AKSESIBILITAS DAN INKLUSIF</td>
+                <td><textarea id="ck_ai_p" class="form-control form-control-sm" rows="2">${ck.ai_p}</textarea></td>
+                <td><textarea id="ck_ai_r" class="form-control form-control-sm" rows="2">${ck.ai_r}</textarea></td>
+              </tr>
+              <tr>
+                <td class="text-center">3</td>
+                <td class="fw-bold">PELIBATAN MASYARAKAT</td>
+                <td><textarea id="ck_pm_p" class="form-control form-control-sm" rows="2">${ck.pm_p}</textarea></td>
+                <td><textarea id="ck_pm_r" class="form-control form-control-sm" rows="2">${ck.pm_r}</textarea></td>
+              </tr>
+              <tr>
+                <td class="text-center">4</td>
+                <td class="fw-bold">EFEKTIVITAS PEMERINTAHAN</td>
+                <td><textarea id="ck_ep_p" class="form-control form-control-sm" rows="2">${ck.ep_p}</textarea></td>
+                <td><textarea id="ck_ep_r" class="form-control form-control-sm" rows="2">${ck.ep_r}</textarea></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
   }
 
   function samakanSkorSatu(idx) {
@@ -218,19 +329,51 @@
 
   function samakanSkorSemua() {
     vData.forEach((it, i) => { vData[i].skala_evaluator = it.skala_responden; });
-    renderVList(document.getElementById('sel-v').value);
+    // We need to pass the existing values of SKM and Catatan when re-rendering
+    const skmValue = parseFloat(document.getElementById('inp-skm').value) || 0;
+    const ck = {
+      pt_p: document.getElementById('ck_pt_p').value, pt_r: document.getElementById('ck_pt_r').value,
+      ai_p: document.getElementById('ck_ai_p').value, ai_r: document.getElementById('ck_ai_r').value,
+      pm_p: document.getElementById('ck_pm_p').value, pm_r: document.getElementById('ck_pm_r').value,
+      ep_p: document.getElementById('ck_ep_p').value, ep_r: document.getElementById('ck_ep_r').value
+    };
+    renderVList(document.getElementById('sel-v').value, skmValue, ck);
     Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Semua skor telah disamakan.', timer: 1000, showConfirmButton: false });
   }
 
-  function kirimV() { Swal.fire({title:'Menyimpan...', didOpen:()=>Swal.showLoading()}); google.script.run.withSuccessHandler(()=>Swal.fire('Tersimpan','Verifikasi berhasil diperbarui','success')).simpanVerifikasi({opd: document.getElementById('sel-v').value, items: vData}); }
+  function kirimV() { 
+    const skmValue = parseFloat(document.getElementById('inp-skm').value) || 0;
+    const ck = {
+      pt_p: document.getElementById('ck_pt_p').value, pt_r: document.getElementById('ck_pt_r').value,
+      ai_p: document.getElementById('ck_ai_p').value, ai_r: document.getElementById('ck_ai_r').value,
+      pm_p: document.getElementById('ck_pm_p').value, pm_r: document.getElementById('ck_pm_r').value,
+      ep_p: document.getElementById('ck_ep_p').value, ep_r: document.getElementById('ck_ep_r').value
+    };
+    Swal.fire({title:'Menyimpan...', didOpen:()=>Swal.showLoading()}); 
+    google.script.run.withSuccessHandler(()=>Swal.fire('Tersimpan','Verifikasi berhasil diperbarui','success'))
+      .simpanVerifikasi({opd: document.getElementById('sel-v').value, items: vData, nilaiSKM: skmValue, catatanKomponen: ck}); 
+  }
 
   function loadHasil() {
     google.script.run.withSuccessHandler(res => {
       currentDataDetail = res;
       document.getElementById('h-body').innerHTML = res.map((h, i) => {
-        const totalNilai = h.rincian.reduce((a, b) => a + parseFloat(b.nilai), 0).toFixed(3);
-        const kat = getKategori(totalNilai);
-        return `<tr><td class="fw-bold px-3">${h.opd}</td><td class="text-center"><span class="badge bg-primary fs-6">${totalNilai}</span></td><td class="text-center fw-bold" style="color:${kat.color}">${kat.label.split(' ')[0]}</td><td class="text-center"><button class="btn btn-sm btn-info text-white fw-bold" onclick="bukaDetail(${i})">Laporan</button> <button class="btn btn-sm btn-outline-danger" onclick="aksiHapus('verifikasi', '${h.opd}')">Hapus</button></td></tr>`;
+        const ippop = parseFloat(h.nilaiIPPOP || 0).toFixed(3);
+        const kat = getKategori(ippop);
+        return `<tr>
+          <td class="fw-bold px-3">${h.opd}</td>
+          <td class="text-center small">${parseFloat(h.nilaiTataKelola).toFixed(3)}</td>
+          <td class="text-center small">${parseFloat(h.nilaiSKM).toFixed(3)}</td>
+          <td class="text-center"><span class="badge bg-primary fs-6">${ippop}</span></td>
+          <td class="text-center fw-bold" style="color:${kat.color}">${kat.label.split(' ')[0]}</td>
+          <td class="text-center">
+            <div class="btn-group">
+              <button class="btn btn-sm btn-info text-white fw-bold" onclick="bukaDetail(${i})">Laporan</button>
+              <button class="btn btn-sm btn-primary fw-bold" onclick="cetakBeritaAcara(${i})">Berita Acara</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="aksiHapus('verifikasi', '${h.opd}')">Hapus</button>
+            </div>
+          </td>
+        </tr>`;
       }).join('');
     }).getRekapVerifikasi();
   }
@@ -254,20 +397,237 @@
   }
 
   function bukaDetail(idx) {
-    const d = currentDataDetail[idx]; const totalNilai = d.rincian.reduce((a, b) => a + parseFloat(b.nilai), 0).toFixed(3); const kat = getKategori(totalNilai);
-    document.getElementById('det-opd-nama').innerText = d.opd; document.getElementById('det-total-display').innerText = totalNilai; document.getElementById('det-kategori-label').innerText = kat.label; document.getElementById('det-kategori-label').style.color = kat.color;
-    const gr = d.rincian.reduce((acc, it) => { if (!acc[it.aspek]) acc[it.aspek] = []; acc[it.aspek].push(it); return acc; }, {});
-    let h = ""; for (let asp in gr) { gr[asp].forEach((r, i) => { h += `<tr>${i===0?`<td rowspan="${gr[asp].length}" class="fw-bold align-middle bg-light" style="width:180px">${asp}</td>`:''}<td>${r.soal}</td><td class="text-center">${r.bobot}</td><td class="text-center">${r.skor}</td><td class="text-center fw-bold">${r.nilai}</td></tr>`; }); }
-    document.getElementById('det-tabel-body').innerHTML = h; mDetail.show();
+    const d = currentDataDetail[idx];
+    const ippop = parseFloat(d.nilaiIPPOP || 0).toFixed(3);
+    const kat = getKategori(ippop);
+    const r = d.rincian;
+
+    // Populate header fields
+    document.getElementById('det-opd-nama').innerText = d.opd;
+    document.getElementById('det-ipp-final').innerText = ippop;
+    document.getElementById('det-predikat-final').innerText = kat.label;
+
+    // Aspect grouping - multipliers must match Master_Pertanyaan bobot per item / 5
+    // We use the bobot field from each item to compute nilai per poin = (bobot/5) * skor
+    // The 4 Aspect groups are derived from aspek names in order
+    const aspekKeys = [...new Set(r.map(x => x.aspek))];
+    const romanNumerals = ['I','II','III','IV','V','VI','VII','VIII'];
+    const TDstyle = 'border: 1px solid black; padding: 4px;';
+    const TDcenter = TDstyle + ' text-align: center;';
+
+    let html = '';
+    let totalTK = 0;
+    let globalRowNo = 1;
+
+    aspekKeys.forEach((aspek, aspIdx) => {
+      const items = r.filter(x => x.aspek === aspek);
+      let aspectSum = 0;
+
+      items.forEach((it, i) => {
+        const score = parseFloat(it.skor || 0);
+        const nilaiPerPoin = parseFloat(it.nilai || 0);
+        aspectSum += nilaiPerPoin;
+
+        html += `<tr>
+          ${i === 0 ? `<td rowspan="${items.length}" style="${TDcenter} font-weight:bold; vertical-align:middle;">${romanNumerals[aspIdx]}</td>` : ''}
+          ${i === 0 ? `<td rowspan="${items.length}" style="${TDcenter} vertical-align:middle;">${aspek}</td>` : ''}
+          <td style="${TDcenter}">${globalRowNo++}</td>
+          <td style="${TDstyle} font-size:10px;">${it.soal}</td>
+          <td style="${TDcenter}">${score}</td>
+          <td style="${TDcenter}">${nilaiPerPoin.toFixed(3)}</td>
+          ${i === 0 ? `<td rowspan="${items.length}" style="${TDcenter} vertical-align:middle; background:#f1f3f5; font-weight:bold;">-</td>` : ''}
+          ${aspIdx === 0 && i === 0 ? `<td rowspan="999" style="${TDcenter} vertical-align:middle; font-weight:bold;">-</td>` : ''}
+        </tr>`;
+      });
+
+      // Summary row per aspek
+      html += `<tr style="background:#f8f9fa; font-weight:bold;">
+        <td colspan="5" style="${TDstyle} text-align:right; font-size:10px; padding:5px;">JUMLAH NILAI ASPEK ${aspek.toUpperCase()}</td>
+        <td style="${TDcenter}">${aspectSum.toFixed(3)}</td>
+      </tr>`;
+
+      totalTK += aspectSum;
+    });
+
+    document.getElementById('det-tabel-body-full').innerHTML = html;
+
+    // Now fix the rowspan cells manually
+    const tbody = document.getElementById('det-tabel-body-full');
+    const allRows = tbody.querySelectorAll('tr');
+    let rowIdx = 0;
+    aspekKeys.forEach((aspek) => {
+      const items = r.filter(x => x.aspek === aspek);
+      const firstRow = allRows[rowIdx];
+      const aspSumCell = firstRow.querySelectorAll('td')[6]; // nilai per aspek col
+      if (aspSumCell) {
+        const sum = items.reduce((a, it) => a + parseFloat(it.nilai || 0), 0);
+        aspSumCell.innerText = sum.toFixed(3);
+      }
+      rowIdx += (items.length + 1); // +1 for summary row
+    });
+
+    // Fix NILAI PER DIMENSI cell (first rowspan=999 cell)
+    const dimCell = tbody.querySelector('td[rowspan="999"]');
+    const tk50 = (totalTK * 0.5).toFixed(3);
+    if (dimCell) dimCell.innerText = tk50;
+
+    // Populate tfoot
+    const skmRaw = parseFloat(d.nilaiSKM || 0);
+    const skm50 = (skmRaw * 0.5).toFixed(3);
+
+    document.getElementById('det-tk-raw').innerText = totalTK.toFixed(3);
+    document.getElementById('det-tk-50').innerText = tk50;
+    document.getElementById('det-skm-raw-1').innerText = skmRaw.toFixed(3);
+    document.getElementById('det-skm-raw-2').innerText = skmRaw.toFixed(2);
+    document.getElementById('det-skm-sum').innerText = skmRaw.toFixed(3);
+    document.getElementById('det-skm-50').innerText = skm50;
+
+    mDetail.show();
   }
 
   function aksiHapus(tipe, opd) {
-    Swal.fire({ title:'Konfirmasi Hapus', text:`Anda akan menghapus seluruh data ${tipe} untuk ${opd}.`, icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Ya, Hapus!' }).then(r => {
-      if(r.isConfirmed) google.script.run.withSuccessHandler(()=>location.reload()).hapusJawabanOPD(opd);
+    Swal.fire({ 
+      title:'Konfirmasi Hapus', 
+      text:`Anda akan menghapus seluruh data ${tipe} untuk ${opd}. Tindakan ini tidak dapat dibatalkan.`, 
+      icon:'warning', 
+      showCancelButton:true, 
+      confirmButtonColor:'#d33', 
+      confirmButtonText:'Ya, Hapus!' 
+    }).then(r => {
+      if(r.isConfirmed) {
+        Swal.fire({title:'Menghapus...', didOpen:()=>Swal.showLoading()});
+        google.script.run.withSuccessHandler(() => {
+          Swal.fire('Terhapus', 'Data berhasil dihapus', 'success');
+          loadHasil();
+          loadStats();
+        }).hapusJawabanOPD(opd);
+      }
     });
   }
 
-  function cetakPDF() { const element = document.getElementById('area-print'); html2pdf().set({ margin:10, filename:'Laporan_Evaluasi.pdf', jsPDF:{unit:'mm', format:'a4', orientation:'portrait'} }).from(element).save(); }
+  function cetakPDF() {
+    const element = document.getElementById('area-print');
+    const opdName = document.getElementById('det-opd-nama').innerText.replace(/\s+/g, '_') || 'Laporan';
+    html2pdf().set({
+      margin: 0,
+      filename: `Laporan_IPP_OP_${opdName}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(element).save();
+  }
+
+  async function cetakDOCX() {
+    const element = document.getElementById('area-print');
+    const opdName = document.getElementById('det-opd-nama').innerText.replace(/\s+/g, '_') || 'Laporan';
+    const filename = `Laporan_IPP_OP_${opdName}.doc`;
+
+    try {
+      const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:w="urn:schemas-microsoft-com:office:word"
+              xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="UTF-8">
+          <!--[if gte mso 9]>
+          <xml>
+            <w:WordDocument>
+              <w:View>Print</w:View>
+              <w:Zoom>100</w:Zoom>
+              <w:DoNotOptimizeForBrowser/>
+            </w:WordDocument>
+          </xml>
+          <![endif]-->
+          <style>
+            @page { size: 21cm 29.7cm; margin: 2cm; }
+            body { font-family: Arial, sans-serif; font-size: 11pt; color: black; }
+            table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+            td, th { border: 1px solid black; padding: 4px 6px; vertical-align: middle; }
+            .bold { font-weight: bold; }
+            h4, h5, h6 { margin: 2px 0; }
+          </style>
+        </head>
+        <body>${element.innerHTML}</body>
+        </html>`;
+
+      const blob = new Blob([htmlContent], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      Swal.fire({ icon: 'success', title: 'Berhasil!', text: `File ${filename} berhasil diunduh. Buka dengan Microsoft Word atau LibreOffice.`, timer: 3000, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire('Gagal', 'Tidak dapat membuat file: ' + err.message, 'error');
+    }
+  }
+
+  function cetakXLS() {
+    const element = document.getElementById('area-print');
+    const opdName = document.getElementById('det-opd-nama').innerText.replace(/\s+/g, '_') || 'Laporan';
+    const filename = `Laporan_IPP_OP_${opdName}.xls`;
+
+    try {
+      // Ambil hanya elemen tabel dari area-print
+      const tables = element.querySelectorAll('table');
+      let tableHTML = '';
+      tables.forEach(t => { tableHTML += t.outerHTML; });
+
+      const xlsContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:x="urn:schemas-microsoft-com:office:excel"
+              xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="UTF-8">
+          <!--[if gte mso 9]><xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Laporan IPP OP</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                    <x:Print>
+                      <x:FitToPage/>
+                      <x:PaperSizeIndex>9</x:PaperSizeIndex>
+                    </x:Print>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml><![endif]-->
+          <style>
+            body { font-family: Arial; font-size: 10pt; }
+            table { border-collapse: collapse; }
+            td, th { border: 1px solid black; padding: 4px; font-size: 9pt; }
+            .bold { font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <p style="font-weight:bold; text-align:center;">KOMPONEN PERHITUNGAN NILAI IPP OP</p>
+          <p>UPP : ${document.getElementById('det-opd-nama').innerText}</p>
+          ${tableHTML}
+        </body>
+        </html>`;
+
+      const blob = new Blob([xlsContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      Swal.fire({ icon: 'success', title: 'Berhasil!', text: `File ${filename} berhasil diunduh. Buka dengan Microsoft Excel atau LibreOffice Calc.`, timer: 3000, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire('Gagal', 'Tidak dapat membuat file: ' + err.message, 'error');
+    }
+  }
 
   function bukaModalTambahUser() {
     document.getElementById('new-user').value = '';
@@ -321,4 +681,163 @@
       }
     });
   }
+
+  function cetakBeritaAcara(idx) {
+    const d = currentDataDetail[idx];
+    Swal.fire({
+      title: 'Generasi Berita Acara',
+      text: `Sedang memproses dokumen untuk ${d.opd}...`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    google.script.run.withSuccessHandler(res => {
+      Swal.close();
+      if (res.status === "success") {
+        const fullHtml = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                xmlns:w="urn:schemas-microsoft-com:office:word"
+                xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="UTF-8">
+            <!--[if gte mso 9]>
+            <xml>
+              <w:WordDocument>
+                <w:View>Print</w:View>
+                <w:Zoom>100</w:Zoom>
+                <w:DoNotOptimizeForBrowser/>
+              </w:WordDocument>
+            </xml>
+            <![endif]-->
+            <style>
+              @page { size: 29.7cm 21cm; margin: 2cm; mso-page-orientation: landscape; }
+              @page Section1 { size: 29.7cm 21cm; margin: 2cm; mso-header-margin: .5in; mso-footer-margin: .5in; mso-paper-source: 0; }
+              div.Section1 { page: Section1; }
+              body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: black; }
+              table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+              td, th { border: 1px solid black; padding: 6px; vertical-align: middle; }
+            </style>
+          </head>
+          <body>
+            <div class="Section1">
+              ${res.html}
+            </div>
+          </body>
+          </html>`;
+
+        const blob = new Blob([fullHtml], { type: 'application/msword;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil!',
+          text: 'Berita Acara berhasil diunduh secara otomatis.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire('Gagal', res.message, 'error');
+      }
+    }).withFailureHandler(err => {
+      Swal.close();
+      Swal.fire('Error', err.message, 'error');
+    }).generateBeritaAcara(d.opd);
+  }
+
+  // --- PENGATURAN PERIODE (EVALUATOR) ---
+
+  function toggleOpdInput() {
+    const tipe = document.getElementById('set-tipe').value;
+    const wrap = document.getElementById('set-opd-wrap');
+    wrap.classList.toggle('hidden', tipe !== 'OPD');
+  }
+
+  function loadPengaturan() {
+    // Isi dropdown OPD dari sheet Master_OPD
+    google.script.run.withSuccessHandler(opdList => {
+      const opts = opdList.map(nama => `<option value="${nama}">${nama}</option>`).join('');
+      document.getElementById('set-opd-val').innerHTML = opts || '<option>Tidak ada OPD</option>';
+    }).getListOPD();
+
+    // Muat tabel pengaturan
+    google.script.run.withSuccessHandler(rows => {
+      const now = new Date();
+      const tbody = document.getElementById('setting-body');
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada pengaturan periode.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(r => {
+        const buka = r.tglBuka ? new Date(r.tglBuka) : null;
+        const tutup = r.tglTutup ? new Date(r.tglTutup) : null;
+        let statusBadge = '<span class="badge bg-secondary">Tidak Diketahui</span>';
+        if (buka && tutup) {
+          if (now < buka) statusBadge = '<span class="badge bg-warning text-dark">⏳ Belum Dibuka</span>';
+          else if (now > tutup) statusBadge = '<span class="badge bg-danger">🔒 Sudah Tutup</span>';
+          else statusBadge = '<span class="badge bg-success">✅ Sedang Buka</span>';
+        }
+        const fmtBuka = buka ? buka.toLocaleString('id-ID') : '-';
+        const fmtTutup = tutup ? tutup.toLocaleString('id-ID') : '-';
+        const label = r.tipe === 'GLOBAL' ? '🌐 GLOBAL (Semua OPD)' : `🏢 ${r.tipe}`;
+        return `<tr>
+          <td class="px-3 fw-bold">${label}</td>
+          <td class="text-center text-success">${fmtBuka}</td>
+          <td class="text-center text-danger">${fmtTutup}</td>
+          <td class="text-center">${statusBadge}</td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-danger" onclick="hapusPengaturan('${r.tipe}')">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    }).getPengaturanPeriode();
+  }
+
+  function simpanPengaturan() {
+    const tipeEl = document.getElementById('set-tipe').value;
+    const tipe = tipeEl === 'OPD' ? document.getElementById('set-opd-val').value : 'GLOBAL';
+    const tglBuka = document.getElementById('set-buka').value;
+    const tglTutup = document.getElementById('set-tutup').value;
+
+    if (!tglBuka || !tglTutup) {
+      Swal.fire('Peringatan', 'Tanggal buka dan tutup harus diisi!', 'warning'); return;
+    }
+    if (new Date(tglTutup) <= new Date(tglBuka)) {
+      Swal.fire('Peringatan', 'Tanggal tutup harus lebih besar dari tanggal buka!', 'warning'); return;
+    }
+
+    Swal.fire({ title: 'Menyimpan...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+    google.script.run
+      .withSuccessHandler(res => {
+        Swal.fire({ icon: 'success', title: 'Tersimpan!', text: res.pesan, timer: 2000, showConfirmButton: false });
+        loadPengaturan();
+      })
+      .withFailureHandler(err => Swal.fire('Gagal', err.message, 'error'))
+      .simpanPeriodePengisian({ tipe, tglBuka, tglTutup });
+  }
+
+  function hapusPengaturan(tipe) {
+    Swal.fire({
+      title: 'Konfirmasi Hapus',
+      text: `Hapus pengaturan periode untuk "${tipe}"?`,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus!'
+    }).then(r => {
+      if (r.isConfirmed) {
+        google.script.run
+          .withSuccessHandler(() => { Swal.fire('Terhapus!', '', 'success'); loadPengaturan(); })
+          .withFailureHandler(err => Swal.fire('Gagal', err.message, 'error'))
+          .hapusPeriodePengisian(tipe);
+      }
+    });
+  }
+
 </script>

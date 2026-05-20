@@ -31,7 +31,7 @@
           MASUK KE SISTEM <i class="bi bi-arrow-right ms-2"></i>
         </button>
       </form>
-      <button class="btn btn-link btn-sm mt-3 text-muted text-decoration-none" onclick="location.reload()">
+      <button class="btn btn-link btn-sm mt-3 text-muted text-decoration-none" onclick="window.top.location.href = 'https://bagorsetdamuarojambi.blogspot.com/'">
         <i class="bi bi-x-circle me-1"></i> Batal & Kembali
       </button>
     </div>
@@ -76,15 +76,113 @@
         <h5>DETAIL LAPORAN</h5>
         <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body" id="area-print" style="padding: 40px; background:white;">
-        <div class="text-center mb-4"><h4 class="fw-bold">HASIL EVALUASI PEKPPP</h4><p id="det-opd-nama" class="text-uppercase fw-bold text-muted"></p><hr></div>
-        <div class="row mb-4 bg-light p-3 rounded border align-items-center">
-          <div class="col-md-6 text-center border-end"><h6>INDEKS AKHIR</h6><h1 class="fw-bold text-primary" id="det-total-display">0.000</h1></div>
-          <div class="col-md-6 text-center"><h6>KATEGORI</h6><h3 class="fw-bold" id="det-kategori-label">--</h3></div>
+      <div class="modal-body" style="background:#f8f9fa;">
+        
+        <!-- Area Cetak -->
+        <div id="area-print" style="width: 190mm; min-height: 270mm; margin: auto; background: white; padding: 15mm; font-family: 'Arial', sans-serif; font-size: 11px; color: black; line-height: 1.4;">
+          
+          <div style="text-align: center; margin-bottom: 25px;">
+            <p style="font-weight: bold; margin: 0; font-size: 14px; text-transform: uppercase;">
+              KOMPONEN PERHITUNGAN NILAI <br />
+              PERLOMBAAN EVALUASI PENYELENGGARAAN PELAYANAN PUBLIK <br />
+              TAHUN 2026
+            </p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <table style="width: 100%; border: none;">
+              <tr>
+                <td style="width: 100px; font-weight: bold;">UPP</td>
+                <td style="width: 10px;">:</td>
+                <td id="det-opd-nama" style="text-transform: uppercase; font-weight: bold;">-</td>
+              </tr>
+              <tr>
+                <td style="font-weight: bold;">ALAMAT</td>
+                <td>:</td>
+                <td id="det-opd-alamat">-</td>
+              </tr>
+            </table>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; border: 1.5px solid black;">
+            <thead>
+              <tr style="background: #e9ecef; text-align: center; font-weight: bold;">
+                <td style="border: 1px solid black; padding: 5px; width: 30px;">NO</td>
+                <td style="border: 1px solid black; padding: 5px; width: 100px;">ASPEK</td>
+                <td style="border: 1px solid black; padding: 5px; width: 30px;">NO</td>
+                <td style="border: 1px solid black; padding: 5px;">PERTANYAAN</td>
+                <td style="border: 1px solid black; padding: 5px; width: 45px;">POIN</td>
+                <td style="border: 1px solid black; padding: 5px; width: 60px;">NILAI PER POIN</td>
+                <td style="border: 1px solid black; padding: 5px; width: 70px;">NILAI PER ASPEK</td>
+                <td style="border: 1px solid black; padding: 5px; width: 80px;">NILAI PER DIMENSI</td>
+              </tr>
+              <tr style="background: #f8f9fa;">
+                <td colspan="8" style="border: 1px solid black; padding: 5px; text-align: center; font-weight: bold;">DIMENSI TATA KELOLA</td>
+              </tr>
+            </thead>
+            <tbody id="det-tabel-body-full">
+              <!-- Content will be injected by JavaScript -->
+            </tbody>
+            <tfoot>
+              <!-- Tata Kelola Total -->
+              <tr style="font-weight: bold;">
+                <td colspan="6" style="border: 1px solid black; padding: 8px; text-align: center; font-size: 12px;">JUMLAH NILAI DIMENSI TATA KELOLA</td>
+                <td id="det-tk-raw" style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td id="det-tk-50" style="border: 1px solid black; padding: 5px; text-align: center; background: #fff3cd;">-</td>
+              </tr>
+              <!-- SKM Dimension -->
+              <tr style="background: #f8f9fa;">
+                <td colspan="8" style="border: 1px solid black; padding: 5px; text-align: center; font-weight: bold;">DIMENSI SKM</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: center; font-weight: bold;">NILAI SKM</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td style="border: 1px solid black; padding: 5px;">Nilai SKM OP (Ekspor dari Aplikasi SKM)</td>
+                <td id="det-skm-raw-1" style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td id="det-skm-raw-2" style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+              </tr>
+              <tr style="font-weight: bold;">
+                <td colspan="6" style="border: 1px solid black; padding: 8px; text-align: center; font-size: 12px;">JUMLAH NILAI DIMENSI SKM</td>
+                <td id="det-skm-sum" style="border: 1px solid black; padding: 5px; text-align: center;">-</td>
+                <td id="det-skm-50" style="border: 1px solid black; padding: 5px; text-align: center; background: #fff3cd;">-</td>
+              </tr>
+              <!-- Final Total -->
+              <tr style="background: #0d6efd; color: white; font-weight: bold; font-size: 14px;">
+                <td colspan="7" style="border: 1px solid black; padding: 10px; text-align: center;">TOTAL NILAI IPP OP (INDEKS AKHIR)</td>
+                <td id="det-ipp-final" style="border: 1px solid black; padding: 10px; text-align: center; background: #004085;">-</td>
+              </tr>
+              <tr style="font-weight: bold; text-align: center;">
+                <td colspan="7" style="border: 1px solid black; padding: 5px;">PREDIKAT</td>
+                <td id="det-predikat-final" style="border: 1px solid black; padding: 5px;">-</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
+            <div style="text-align: center; width: 250px;">
+              <p style="margin-bottom: 60px;">EVALUATOR,</p>
+              <p style="font-weight: bold; text-decoration: underline;">( ............................................ )</p>
+            </div>
+          </div>
+
         </div>
-        <table class="table table-bordered border-dark small"><thead class="table-secondary text-center fw-bold"><tr><th>ASPEK</th><th>INDIKATOR</th><th>BOBOT</th><th>SKOR</th><th>NILAI</th></tr></thead><tbody id="det-tabel-body"></tbody></table>
+
       </div>
-      <div class="modal-footer"><button class="btn btn-danger fw-bold" onclick="cetakPDF()">DOWNLOAD PDF</button></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary fw-bold" data-bs-dismiss="modal">TUTUP</button>
+        <button class="btn btn-success fw-bold shadow-sm" onclick="cetakXLS()">
+          <i class="bi bi-file-earmark-excel-fill me-2"></i> DOWNLOAD XLS
+        </button>
+        <button class="btn btn-primary fw-bold shadow-sm" onclick="cetakDOCX()">
+          <i class="bi bi-file-earmark-word-fill me-2"></i> DOWNLOAD DOCX
+        </button>
+        <button class="btn btn-danger fw-bold shadow-sm" onclick="cetakPDF()">
+          <i class="bi bi-file-earmark-pdf-fill me-2"></i> DOWNLOAD PDF (A4)
+        </button>
+      </div>
     </div>
   </div>
 </div>
