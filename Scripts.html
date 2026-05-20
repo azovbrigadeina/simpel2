@@ -200,14 +200,27 @@
 
   // --- EVALUATOR LOGIC ---
   function loadStats() {
+    // Skeleton loader
+    document.getElementById('s-tot').innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    document.getElementById('s-sud').innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    document.getElementById('s-bel').innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     google.script.run.withSuccessHandler(res => {
-      document.getElementById('s-tot').innerText = res.total; document.getElementById('s-sud').innerText = res.sudah; document.getElementById('s-bel').innerText = res.total - res.sudah;
+      document.getElementById('s-tot').innerText = res.total;
+      document.getElementById('s-sud').innerText = res.sudah;
+      document.getElementById('s-bel').innerText = res.total - res.sudah;
       if (myChart) myChart.destroy();
       myChart = new Chart(document.getElementById('chartProgres').getContext('2d'), { type:'doughnut', data:{ labels:['Sudah','Belum'], datasets:[{data:[res.sudah, res.total-res.sudah], backgroundColor:['#198754','#dee2e6']}] }, options:{plugins:{legend:{position:'bottom'}}} });
     }).getStats();
   }
 
-  function initV() { google.script.run.withSuccessHandler(res => { let h = '<option value="">-- Pilih OPD --</option>'; for(let o in res) h += `<option value="${o}">${o}</option>`; document.getElementById('sel-v').innerHTML = h; }).getOPDSudahKirim(); }
+  function initV() {
+    document.getElementById('sel-v').innerHTML = '<option>⏳ Memuat data OPD...</option>';
+    google.script.run.withSuccessHandler(res => {
+      let h = '<option value="">-- Pilih OPD --</option>';
+      for (let o in res) h += `<option value="${o}">${o}</option>`;
+      document.getElementById('sel-v').innerHTML = h;
+    }).getOPDSudahKirim();
+  }
   
   function muatV() {
     const o = document.getElementById('sel-v').value; if(!o) return;
@@ -328,16 +341,20 @@
   }
 
   function samakanSkorSemua() {
-    vData.forEach((it, i) => { vData[i].skala_evaluator = it.skala_responden; });
-    // We need to pass the existing values of SKM and Catatan when re-rendering
-    const skmValue = parseFloat(document.getElementById('inp-skm').value) || 0;
-    const ck = {
-      pt_p: document.getElementById('ck_pt_p').value, pt_r: document.getElementById('ck_pt_r').value,
-      ai_p: document.getElementById('ck_ai_p').value, ai_r: document.getElementById('ck_ai_r').value,
-      pm_p: document.getElementById('ck_pm_p').value, pm_r: document.getElementById('ck_pm_r').value,
-      ep_p: document.getElementById('ck_ep_p').value, ep_r: document.getElementById('ck_ep_r').value
-    };
-    renderVList(document.getElementById('sel-v').value, skmValue, ck);
+    vData.forEach((it, i) => {
+      vData[i].skala_evaluator = it.skala_responden;
+      // Update DOM langsung tanpa re-render seluruh halaman
+      const sel = document.getElementById('sel-eval-' + i);
+      if (sel) {
+        sel.value = it.skala_responden;
+        const card = sel.closest('.q-card');
+        if (card) {
+          card.style.transition = 'background-color 0.3s';
+          card.style.backgroundColor = '#f0fff4';
+          setTimeout(() => card.style.backgroundColor = '', 600);
+        }
+      }
+    });
     Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Semua skor telah disamakan.', timer: 1000, showConfirmButton: false });
   }
 
@@ -355,8 +372,18 @@
   }
 
   function loadHasil() {
+    // Tampilkan skeleton loader saat menunggu data
+    document.getElementById('h-body').innerHTML = `
+      <tr><td colspan="6" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="text-muted small mt-2">Menghitung rekap nilai...</div>
+      </td></tr>`;
     google.script.run.withSuccessHandler(res => {
       currentDataDetail = res;
+      if (!res || res.length === 0) {
+        document.getElementById('h-body').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Belum ada data verifikasi.</td></tr>';
+        return;
+      }
       document.getElementById('h-body').innerHTML = res.map((h, i) => {
         const ippop = parseFloat(h.nilaiIPPOP || 0).toFixed(3);
         const kat = getKategori(ippop);
@@ -760,45 +787,46 @@
   }
 
   function loadPengaturan() {
-    // Isi dropdown OPD dari sheet Master_OPD
-    google.script.run.withSuccessHandler(opdList => {
-      const opts = opdList.map(nama => `<option value="${nama}">${nama}</option>`).join('');
+    // Optimasi: satu panggilan server untuk OPD + periode (sebelumnya 2 panggilan terpisah)
+    google.script.run.withSuccessHandler(data => {
+      const opts = (data.opdList || []).map(nama => `<option value="${nama}">${nama}</option>`).join('');
       document.getElementById('set-opd-val').innerHTML = opts || '<option>Tidak ada OPD</option>';
-    }).getListOPD();
 
-    // Muat tabel pengaturan
-    google.script.run.withSuccessHandler(rows => {
-      const now = new Date();
-      const tbody = document.getElementById('setting-body');
-      if (!rows || rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada pengaturan periode.</td></tr>';
-        return;
+      renderTabelPengaturan(data.periodeList || []);
+    }).getPengaturanDanOPD();
+  }
+
+  function renderTabelPengaturan(rows) {
+    const now = new Date();
+    const tbody = document.getElementById('setting-body');
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada pengaturan periode.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const buka = r.tglBuka ? new Date(r.tglBuka) : null;
+      const tutup = r.tglTutup ? new Date(r.tglTutup) : null;
+      let statusBadge = '<span class="badge bg-secondary">Tidak Diketahui</span>';
+      if (buka && tutup) {
+        if (now < buka) statusBadge = '<span class="badge bg-warning text-dark">⏳ Belum Dibuka</span>';
+        else if (now > tutup) statusBadge = '<span class="badge bg-danger">🔒 Sudah Tutup</span>';
+        else statusBadge = '<span class="badge bg-success">✅ Sedang Buka</span>';
       }
-      tbody.innerHTML = rows.map(r => {
-        const buka = r.tglBuka ? new Date(r.tglBuka) : null;
-        const tutup = r.tglTutup ? new Date(r.tglTutup) : null;
-        let statusBadge = '<span class="badge bg-secondary">Tidak Diketahui</span>';
-        if (buka && tutup) {
-          if (now < buka) statusBadge = '<span class="badge bg-warning text-dark">⏳ Belum Dibuka</span>';
-          else if (now > tutup) statusBadge = '<span class="badge bg-danger">🔒 Sudah Tutup</span>';
-          else statusBadge = '<span class="badge bg-success">✅ Sedang Buka</span>';
-        }
-        const fmtBuka = buka ? buka.toLocaleString('id-ID') : '-';
-        const fmtTutup = tutup ? tutup.toLocaleString('id-ID') : '-';
-        const label = r.tipe === 'GLOBAL' ? '🌐 GLOBAL (Semua OPD)' : `🏢 ${r.tipe}`;
-        return `<tr>
-          <td class="px-3 fw-bold">${label}</td>
-          <td class="text-center text-success">${fmtBuka}</td>
-          <td class="text-center text-danger">${fmtTutup}</td>
-          <td class="text-center">${statusBadge}</td>
-          <td class="text-center">
-            <button class="btn btn-sm btn-outline-danger" onclick="hapusPengaturan('${r.tipe}')">
-              <i class="bi bi-trash"></i>
-            </button>
-          </td>
-        </tr>`;
-      }).join('');
-    }).getPengaturanPeriode();
+      const fmtBuka = buka ? buka.toLocaleString('id-ID') : '-';
+      const fmtTutup = tutup ? tutup.toLocaleString('id-ID') : '-';
+      const label = r.tipe === 'GLOBAL' ? '🌐 GLOBAL (Semua OPD)' : `🏢 ${r.tipe}`;
+      return `<tr>
+        <td class="px-3 fw-bold">${label}</td>
+        <td class="text-center text-success">${fmtBuka}</td>
+        <td class="text-center text-danger">${fmtTutup}</td>
+        <td class="text-center">${statusBadge}</td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-outline-danger" onclick="hapusPengaturan('${r.tipe}')">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
   }
 
   function simpanPengaturan() {

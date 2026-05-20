@@ -3,10 +3,36 @@
  */
 
 function prosesLogin(username, password) {
+  const u = username.trim(); const p = password.trim();
+
+  if (SETTINGS.USE_FIREBASE) {
+    try {
+      const escapedU = Firebase.escapeKey(u);
+      const userData = Firebase.get(`users/${escapedU}`);
+      if (userData && userData.password === p) {
+        let sudahIsi = false;
+        if (userData.role === "Responden") {
+          const jawabanData = Firebase.get(`jawaban/${Firebase.escapeKey(userData.nama_opd)}`);
+          sudahIsi = (jawabanData !== null);
+        }
+        return { 
+          status: "success", 
+          role: userData.role, 
+          nama_opd: userData.nama_opd, 
+          username: u,
+          sudahIsi: sudahIsi
+        };
+      }
+      return { status: "error", message: "Username atau Password Salah!" };
+    } catch(e) {
+      return { status: "error", message: "Gagal login melalui Firebase: " + e.message };
+    }
+  }
+
+  // Fallback Google Sheets
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const userSheet = ss.getSheetByName("Users");
   const data = userSheet.getDataRange().getValues();
-  const u = username.trim(); const p = password.trim();
   
   for (let i = 1; i < data.length; i++) {
     if (data[i][0].toString() === u && data[i][1].toString() === p) {
@@ -33,6 +59,16 @@ function prosesLogin(username, password) {
 }
 
 function getAllUsers() {
+  if (SETTINGS.USE_FIREBASE) {
+    const users = Firebase.get("users") || {};
+    return Object.keys(users).map(k => [
+      Firebase.unescapeKey(k),
+      users[k].password,
+      users[k].role,
+      users[k].nama_opd
+    ]);
+  }
+
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Users").getDataRange().getValues().slice(1);
 }
 
@@ -41,6 +77,15 @@ function getAllUsers() {
  * Digunakan oleh tab Pengaturan untuk mengisi dropdown pilihan OPD.
  */
 function getDaftarUser() {
+  if (SETTINGS.USE_FIREBASE) {
+    const users = Firebase.get("users") || {};
+    return Object.keys(users).map(k => ({
+      username: Firebase.unescapeKey(k).trim(),
+      role: (users[k].role || "").trim().toLowerCase(),
+      opd: (users[k].nama_opd || "").trim()
+    }));
+  }
+
   const rows = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Users").getDataRange().getValues().slice(1);
   return rows.map(r => ({
     username: r[0].toString().trim(),
@@ -50,6 +95,20 @@ function getDaftarUser() {
 }
 
 function simpanUserBaru(payload) {
+  if (SETTINGS.USE_FIREBASE) {
+    const escapedU = Firebase.escapeKey(payload.username);
+    const existing = Firebase.get(`users/${escapedU}`);
+    if (existing) {
+      throw new Error("Username sudah terdaftar!");
+    }
+    Firebase.put(`users/${escapedU}`, {
+      password: payload.password,
+      role: payload.role,
+      nama_opd: payload.nama_opd
+    });
+    return "User Berhasil Ditambahkan";
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Users");
   const data = sheet.getDataRange().getValues();
@@ -70,6 +129,16 @@ function simpanUserBaru(payload) {
 }
 
 function hapusUser(username) {
+  if (SETTINGS.USE_FIREBASE) {
+    const escapedU = Firebase.escapeKey(username);
+    const existing = Firebase.get(`users/${escapedU}`);
+    if (!existing) {
+      throw new Error("User tidak ditemukan");
+    }
+    Firebase.remove(`users/${escapedU}`);
+    return "User berhasil dihapus";
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Users");
   const data = sheet.getDataRange().getValues();
