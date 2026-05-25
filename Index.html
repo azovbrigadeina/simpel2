@@ -8,6 +8,28 @@
 </head>
 <body>
 
+<!-- Loading Screen Overlay -->
+<div id="loading-screen" class="hidden">
+  <div class="loading-backdrop"></div>
+  <div class="loading-content">
+    <div class="loading-logo-wrap">
+      <div class="loading-logo">
+        <img src="https://i.postimg.cc/1R2ftS8j/2-LOGO-APLIKASI-SIMPEL.png" alt="Logo" style="width: 100px; height: auto; filter: drop-shadow(0 0 20px rgba(255,255,255,0.5));">
+      </div>
+      <div class="loading-pulse-ring"></div>
+      <div class="loading-pulse-ring" style="animation-delay: 0.5s;"></div>
+    </div>
+    <h3 class="loading-title">SIMPel2</h3>
+    <div class="loading-bar-track">
+      <div class="loading-bar-fill"></div>
+    </div>
+    <p class="loading-status" id="loading-status-text">Memverifikasi kredensial...</p>
+    <div class="loading-dots">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</div>
+
 <div id="main-wrapper" style="flex: 1; display: flex; flex-direction: column;">
   <!-- Landing Page -->
   <div id="p-land" class="bg-vibrant" style="min-height: 100vh; display: flex; align-items: center; color: white; text-align: center;">

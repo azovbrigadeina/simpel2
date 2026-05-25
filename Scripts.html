@@ -15,6 +15,21 @@
 
   function openL(r) { sess.role = r; document.getElementById('titleL').innerText = 'LOGIN ' + r.toUpperCase(); mLogin.show(); }
   
+  function showLoadingScreen(statusText) {
+    const el = document.getElementById('loading-screen');
+    el.classList.remove('hidden', 'loading-screen-fade-out');
+    if (statusText) document.getElementById('loading-status-text').innerText = statusText;
+  }
+  function updateLoadingStatus(text) {
+    const el = document.getElementById('loading-status-text');
+    if (el) el.innerText = text;
+  }
+  function hideLoadingScreen() {
+    const el = document.getElementById('loading-screen');
+    el.classList.add('loading-screen-fade-out');
+    setTimeout(() => el.classList.add('hidden'), 500);
+  }
+
   function doL() {
     const u = document.getElementById('ui').value, p = document.getElementById('pi').value;
     if(!u || !p) return Swal.fire('Error','Lengkapi data login','error');
@@ -26,27 +41,38 @@
         sess = res; mLogin.hide(); 
         document.getElementById('p-land').classList.add('hidden');
         
+        // Tampilkan loading screen
+        showLoadingScreen('Login berhasil! Menyiapkan antarmuka...');
+        
         if(res.role === "Responden") { 
           document.getElementById('p-resp').classList.remove('hidden'); 
           document.getElementById('opd-name').innerText = res.nama_opd;
           if(res.sudahIsi) {
-            document.getElementById('f-cont').innerHTML = `
-              <div class="card p-5 text-center shadow-sm border-0">
-                <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
-                <h3 class="fw-bold mt-3">Data Sudah Terkirim</h3>
-                <p class="text-muted">OPD Anda telah menyelesaikan pengisian kuesioner PEKPPP.<br>
-                Akses pengisian dikunci untuk menjaga validitas data.</p>
-                <div class="alert alert-warning d-inline-block">
-                  <i class="bi bi-info-circle"></i> Hubungi <b>Evaluator (Bagian Organisasi)</b> jika perlu melakukan perbaikan data.
-                </div>
-              </div>`;
-            document.querySelector('.sticky-top').classList.add('hidden');
+            updateLoadingStatus('Memuat status pengisian...');
+            setTimeout(() => {
+              document.getElementById('f-cont').innerHTML = `
+                <div class="card p-5 text-center shadow-sm border-0">
+                  <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                  <h3 class="fw-bold mt-3">Data Sudah Terkirim</h3>
+                  <p class="text-muted">OPD Anda telah menyelesaikan pengisian kuesioner PEKPPP.<br>
+                  Akses pengisian dikunci untuk menjaga validitas data.</p>
+                  <div class="alert alert-warning d-inline-block">
+                    <i class="bi bi-info-circle"></i> Hubungi <b>Evaluator (Bagian Organisasi)</b> jika perlu melakukan perbaikan data.
+                  </div>
+                </div>`;
+              document.querySelector('.sticky-top').classList.add('hidden');
+              hideLoadingScreen();
+            }, 800);
           } else {
+            updateLoadingStatus('Mengambil data pertanyaan dari server...');
             initR();
           }
         } else { 
           document.getElementById('p-eval').classList.remove('hidden'); 
+          updateLoadingStatus('Memuat dashboard monitoring...');
           loadStats(); 
+          // Evaluator: hide loading screen after a brief delay to let content load
+          setTimeout(() => hideLoadingScreen(), 1500);
         }
       } else Swal.fire('Gagal', res.message, 'error');
     }).prosesLogin(u,p);
@@ -88,6 +114,7 @@
               </div>
             </div>` : ''}
           </div>`;
+        hideLoadingScreen();
         return;
       }
       // Tampilkan banner info jika periode aktif
@@ -97,10 +124,12 @@
         info.innerHTML = `<div class="me-3 fs-4">📅</div><div><strong>Batas Pengisian:</strong> Formulir ini akan ditutup pada <strong>${status.tutup}</strong>. Pastikan Anda mengirimkan jawaban sebelum batas waktu tersebut.</div>`;
       }
       // Lanjut muat pertanyaan
+      updateLoadingStatus('Menyusun formulir pengisian...');
       google.script.run.withSuccessHandler(data => {
         totQ = data.length; grp = {}; cats = [];
         data.forEach(r => { if(!grp[r[1]]) { grp[r[1]] = []; cats.push(r[1]); } grp[r[1]].push(r); });
         showS(0);
+        hideLoadingScreen();
       }).getPertanyaan();
     }).cekStatusPeriode(namaOPD);
   }
@@ -379,29 +408,8 @@
         <div class="text-muted small mt-2">Menghitung rekap nilai...</div>
       </td></tr>`;
     google.script.run.withSuccessHandler(res => {
-      currentDataDetail = res;
-      if (!res || res.length === 0) {
-        document.getElementById('h-body').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Belum ada data verifikasi.</td></tr>';
-        return;
-      }
-      document.getElementById('h-body').innerHTML = res.map((h, i) => {
-        const ippop = parseFloat(h.nilaiIPPOP || 0).toFixed(3);
-        const kat = getKategori(ippop);
-        return `<tr>
-          <td class="fw-bold px-3">${h.opd}</td>
-          <td class="text-center small">${parseFloat(h.nilaiTataKelola).toFixed(3)}</td>
-          <td class="text-center small">${parseFloat(h.nilaiSKM).toFixed(3)}</td>
-          <td class="text-center"><span class="badge bg-primary fs-6">${ippop}</span></td>
-          <td class="text-center fw-bold" style="color:${kat.color}">${kat.label.split(' ')[0]}</td>
-          <td class="text-center">
-            <div class="btn-group">
-              <button class="btn btn-sm btn-info text-white fw-bold" onclick="bukaDetail(${i})">Laporan</button>
-              <button class="btn btn-sm btn-primary fw-bold" onclick="cetakBeritaAcara(${i})">Berita Acara</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="aksiHapus('verifikasi', '${h.opd}')">Hapus</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join('');
+      currentDataDetail = res || [];
+      renderRekapTable(currentDataDetail);
     }).getRekapVerifikasi();
   }
 
@@ -514,22 +522,93 @@
 
   function aksiHapus(tipe, opd) {
     Swal.fire({ 
-      title:'Konfirmasi Hapus', 
-      text:`Anda akan menghapus seluruh data ${tipe} untuk ${opd}. Tindakan ini tidak dapat dibatalkan.`, 
-      icon:'warning', 
-      showCancelButton:true, 
-      confirmButtonColor:'#d33', 
-      confirmButtonText:'Ya, Hapus!' 
+      title: 'Konfirmasi Hapus', 
+      html: `Anda akan menghapus seluruh data <b>${tipe}</b> untuk:<br><span class="badge bg-danger mt-2 fs-6">${opd}</span><br><br>Tindakan ini <b>tidak dapat dibatalkan</b>.`, 
+      icon: 'warning', 
+      showCancelButton: true, 
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'Batal',
+      confirmButtonText: '<i class="bi bi-trash"></i> Ya, Hapus!'
     }).then(r => {
-      if(r.isConfirmed) {
-        Swal.fire({title:'Menghapus...', didOpen:()=>Swal.showLoading()});
-        google.script.run.withSuccessHandler(() => {
-          Swal.fire('Terhapus', 'Data berhasil dihapus', 'success');
-          loadHasil();
-          loadStats();
-        }).hapusJawabanOPD(opd);
+      if (!r.isConfirmed) return;
+
+      // --- OPTIMISTIC UPDATE: hapus baris dari tabel SEKARANG tanpa tunggu server ---
+      const backupData = [...currentDataDetail]; // simpan backup jika server error
+      const idxToRemove = currentDataDetail.findIndex(h => h.opd === opd);
+      if (idxToRemove !== -1) {
+        // Animasi fade-out pada baris yang dihapus
+        const rows = document.querySelectorAll('#h-body tr');
+        if (rows[idxToRemove]) {
+          rows[idxToRemove].style.transition = 'opacity 0.3s, background-color 0.3s';
+          rows[idxToRemove].style.opacity = '0';
+          rows[idxToRemove].style.backgroundColor = '#ffcccc';
+        }
+        // Hapus dari data lokal & re-render setelah animasi selesai
+        setTimeout(() => {
+          currentDataDetail.splice(idxToRemove, 1);
+          renderRekapTable(currentDataDetail);
+        }, 300);
       }
+
+      // Stats card: tampilkan spinner sementara
+      ['s-tot','s-sud','s-bel'].forEach(id => {
+        document.getElementById(id).innerHTML = '<span class="spinner-border spinner-border-sm text-secondary"></span>';
+      });
+
+      // Toast notifikasi non-blocking (tidak block UI)
+      Swal.fire({
+        toast: true, position: 'bottom-end', icon: 'info',
+        title: `Menghapus data ${opd}...`,
+        showConfirmButton: false, timer: 3000,
+        timerProgressBar: true
+      });
+
+      // Panggil server di background
+      google.script.run
+        .withSuccessHandler(() => {
+          Swal.fire({
+            toast: true, position: 'bottom-end', icon: 'success',
+            title: 'Data berhasil dihapus!',
+            showConfirmButton: false, timer: 2000,
+            timerProgressBar: true
+          });
+          loadStats(); // hanya refresh stats, tabel sudah diupdate secara optimistic
+        })
+        .withFailureHandler(err => {
+          // Rollback jika server error
+          currentDataDetail = backupData;
+          renderRekapTable(currentDataDetail);
+          Swal.fire('Gagal Menghapus', err.message || 'Terjadi kesalahan pada server. Data telah dikembalikan.', 'error');
+          loadStats();
+        })
+        .hapusJawabanOPD(opd);
     });
+  }
+
+  // Helper: render ulang tabel rekap dari data yang ada di memori (tanpa server call)
+  function renderRekapTable(data) {
+    if (!data || data.length === 0) {
+      document.getElementById('h-body').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Belum ada data verifikasi.</td></tr>';
+      return;
+    }
+    document.getElementById('h-body').innerHTML = data.map((h, i) => {
+      const ippop = parseFloat(h.nilaiIPPOP || 0).toFixed(3);
+      const kat = getKategori(ippop);
+      return `<tr>
+        <td class="fw-bold px-3">${h.opd}</td>
+        <td class="text-center small">${parseFloat(h.nilaiTataKelola).toFixed(3)}</td>
+        <td class="text-center small">${parseFloat(h.nilaiSKM).toFixed(3)}</td>
+        <td class="text-center"><span class="badge bg-primary fs-6">${ippop}</span></td>
+        <td class="text-center fw-bold" style="color:${kat.color}">${kat.label.split(' ')[0]}</td>
+        <td class="text-center">
+          <div class="btn-group">
+            <button class="btn btn-sm btn-info text-white fw-bold" onclick="bukaDetail(${i})">Laporan</button>
+            <button class="btn btn-sm btn-primary fw-bold" onclick="cetakBeritaAcara(${i})">Berita Acara</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="aksiHapus('verifikasi', '${h.opd}')">Hapus</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
   }
 
   function cetakPDF() {

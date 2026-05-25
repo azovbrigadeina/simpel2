@@ -344,7 +344,10 @@ function hapusJawabanOPD(namaOPD) {
     try { Firebase.remove(`jawaban/${opdKey}`); } catch(e) {}
     try { Firebase.remove(`verifikasi/${opdKey}`); } catch(e) {}
     try { Firebase.remove(`skm/${opdKey}`); } catch(e) {}
-    try { CacheService.getScriptCache().remove('dashboard_stats'); } catch(e) {}
+    // Invalidasi SEMUA cache yang relevan agar data langsung fresh
+    const cache = CacheService.getScriptCache();
+    try { cache.remove('dashboard_stats'); } catch(e) {}
+    try { cache.remove('rekap_verifikasi'); } catch(e) {}  // <-- Fix utama: hapus cache rekap
     return "Sukses";
   }
 
